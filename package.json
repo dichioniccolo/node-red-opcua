@@ -9,10 +9,10 @@
     "build:editor:watch": "rollup -c rollup.config.editor.js -w",
     "build:runtime": "tsc -p tsconfig.runtime.json",
     "build:runtime:watch": "tsc -p tsconfig.runtime.watch.json --watch --preserveWatchOutput",
-    "build": "rm -rf dist && yarn copy && yarn build:editor && yarn build:runtime",
+    "build": "rm -rf dist && pnpm copy && pnpm build:editor && pnpm build:runtime",
     "test": "jest --forceExit --detectOpenHandles --colors",
     "test:watch": "jest --forceExit --detectOpenHandles --watchAll",
-    "dev": "rm -rf dist && yarn copy && concurrently --kill-others --names 'COPY,EDITOR,RUNTIME,TEST' --prefix '({name})' --prefix-colors 'yellow.bold,cyan.bold,greenBright.bold,magenta.bold' 'onchange -v \"src/**/*.png\" \"src/**/*.svg\" -- yarn copy' 'yarn build:editor:watch' 'yarn build:runtime:watch' 'sleep 10; yarn test:watch'",
+    "dev": "rm -rf dist && pnpm copy && concurrently --kill-others --names 'COPY,EDITOR,RUNTIME,TEST' --prefix '({name})' --prefix-colors 'yellow.bold,cyan.bold,greenBright.bold,magenta.bold' 'onchange -v \"src/**/*.png\" \"src/**/*.svg\" -- pnpm copy' 'pnpm build:editor:watch' 'pnpm build:runtime:watch' 'sleep 10; pnpm test:watch'",
     "lint": "prettier --ignore-path .eslintignore --check '**/*.{js,ts,md}'; eslint --ext .js,.ts .",
     "lint:fix": "prettier --ignore-path .eslintignore --write '**/*.{js,ts,md}'; eslint --ext .js,.ts . --fix"
   },
@@ -20,13 +20,15 @@
   "license": "MIT",
   "node-red": {
     "nodes": {
-      "transform-text": "./dist/nodes/transform-text/transform-text.js"
+      "opcua-config": "./dist/nodes/opcua-config/opcua-config.js",
+      "opcua-client": "./dist/nodes/opcua-client/opcua-client.js"
     }
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^12.1.2",
     "@types/express": "^5.0.3",
     "@types/jest": "^29.5.14",
+    "@types/mustache": "^4.2.6",
     "@types/node": "^24.0.1",
     "@types/node-red": "^1.1.1",
     "@types/node-red-node-test-helper": "^0.3.4",
@@ -43,7 +45,7 @@
     "eslint-plugin-prettier": "^5.4.1",
     "glob": "^11.0.3",
     "jest": "^30.0.0",
-    "mustache": "^4.0.1",
+    "mustache": "^4.2.0",
     "node-red": "^4.0.9",
     "node-red-node-test-helper": "^0.3.4",
     "onchange": "^7.0.2",
@@ -63,5 +65,10 @@
     "testMatch": [
       "**/__tests__/**/*.test.ts"
     ]
+  },
+  "dependencies": {
+    "effect": "^3.16.6",
+    "node-opcua": "^2.156.0",
+    "node-opcua-crypto": "^4.16.0"
   }
 }
