@@ -4,7 +4,7 @@ import { OpcuaConfigNode } from "../opcua-config/modules/types";
 import {
   ByteString,
   ClientSession,
-  crypto_utils,
+  DataType,
   OPCUAClient,
   UserIdentityInfo,
   UserTokenType,
@@ -12,9 +12,22 @@ import {
 import { OpcuaConfigOptions } from "../opcua-config/shared/types";
 import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
-import { OpcuaClientAction, OpcuaClientStatus } from "./shared/types";
+import {
+  DataTypeSchema,
+  OpcuaClientAction,
+  OpcuaClientActionEnum,
+  OpcuaClientStatus,
+} from "./shared/types";
 
 const nodeInit: NodeInitializer = (RED): void => {
+  const connectionPool = new Map<
+    string,
+    {
+      client: OPCUAClient;
+      session: ClientSession | null;
+    }
+  >();
+
   function OpcuaClientNodeConstructor(
     this: OpcuaClientNode,
     config: OpcuaClientNodeDef
@@ -27,30 +40,31 @@ const nodeInit: NodeInitializer = (RED): void => {
 
     this.action = config.action;
 
-    let client: OPCUAClient | null = null;
-    let session: ClientSession | null = null;
+    const sendOutput = (
+      endpoint: string,
+      output:
+        | { value: any }
+        | { status: { status: OpcuaClientStatus; error?: unknown } }
+    ) => {
+      if ("value" in output) {
+        this.send([output.value, null]);
+        return;
+      }
 
-    const sendOutput = ({
-      value,
-      status,
-    }: {
-      value?: any | null;
-      status?: {
-        status: OpcuaClientStatus;
-        error?: unknown;
-      } | null;
-    }) => {
-      this.send([value ?? null, status ?? null]);
+      if ("status" in output) {
+        this.send([null, output.status]);
+        return;
+      }
     };
-
     const sendNodeStatus = (
+      endpoint: string,
       nodeStatus: NodeStatus,
       status: OpcuaClientStatus,
       error?: unknown
     ) => {
       this.status(nodeStatus);
 
-      sendOutput({
+      sendOutput(endpoint, {
         status: {
           status,
           error,
@@ -58,8 +72,9 @@ const nodeInit: NodeInitializer = (RED): void => {
       });
     };
 
-    const onReestablished = () => {
+    const onReestablished = (endpoint: string) => {
       sendNodeStatus(
+        endpoint,
         {
           fill: "green",
           shape: "dot",
@@ -69,8 +84,9 @@ const nodeInit: NodeInitializer = (RED): void => {
       );
     };
 
-    const onBackoff = (count: number, delay: number) => {
+    const onBackoff = (endpoint: string, count: number, delay: number) => {
       sendNodeStatus(
+        endpoint,
         {
           fill: "yellow",
           shape: "ring",
@@ -80,8 +96,9 @@ const nodeInit: NodeInitializer = (RED): void => {
       );
     };
 
-    const onStartReconnection = () => {
+    const onStartReconnection = (endpoint: string) => {
       sendNodeStatus(
+        endpoint,
         {
           fill: "yellow",
           shape: "ring",
@@ -91,38 +108,62 @@ const nodeInit: NodeInitializer = (RED): void => {
       );
     };
 
-    const onSessionClosed = () => {
-      session = null;
+    const onSessionClosed = (endpoint: string) => {
+      const connection = connectionPool.get(endpoint);
+
+      if (connection) {
+        connection.session = null;
+      }
+
+      sendOutput(endpoint, {
+        status: {
+          status: "disconnected",
+          error: `Session closed for endpoint: ${endpoint}`,
+        },
+      });
+    };
+
+    const onSessionKeepAlive = (endpoint: string) => {
+      sendNodeStatus(
+        endpoint,
+        {
+          fill: "green",
+          shape: "dot",
+          text: "Session keep-alive",
+        },
+        "connected"
+      );
+      sendOutput(endpoint, {
+        status: {
+          status: "connected",
+        },
+      });
     };
 
     this.on("close", async (removed: boolean, done: () => void) => {
-      if (session) {
-        try {
-          await session.close();
+      for (const [_endpoint, { client, session }] of connectionPool) {
+        if (session) {
+          try {
+            await session.close();
 
-          session.removeListener("session_closed", onSessionClosed);
+            session.removeAllListeners();
 
-          session = null;
-
-          this.log("Session closed successfully");
-        } catch (err) {
-          this.error("Error closing session");
+            this.log("Session closed successfully");
+          } catch (err) {
+            this.error("Error closing session");
+          }
         }
-      }
 
-      if (client) {
-        try {
-          await client.disconnect();
+        if (client) {
+          try {
+            await client.disconnect();
 
-          client.removeListener("connection_reestablished", onReestablished);
-          client.removeListener("backoff", onBackoff);
-          client.removeListener("start_reconnection", onStartReconnection);
+            client.removeAllListeners();
 
-          client = null;
-
-          this.log("Client disconnected successfully");
-        } catch (err) {
-          this.error("Error disconnecting client");
+            this.log("Client disconnected successfully");
+          } catch (err) {
+            this.error("Error disconnecting client");
+          }
         }
       }
 
@@ -134,17 +175,93 @@ const nodeInit: NodeInitializer = (RED): void => {
       done();
     });
 
+    const onActionRead = async (
+      endpoint: string,
+      session: ClientSession,
+      msg: NodeMessageInFlow & {
+        dataType: DataTypeSchema;
+        topic: string;
+      }
+    ): Promise<void> => {
+      if (!msg.topic) {
+        this.error("No topic specified for read action", msg);
+        return;
+      }
+
+      try {
+        const dataValue = await session.read({
+          nodeId: msg.topic,
+        });
+
+        sendOutput(endpoint, {
+          value: {
+            topic: msg.topic,
+            payload: dataValue.value.value,
+            dataType: dataValue.value.dataType,
+          },
+        });
+      } catch (err) {
+        sendOutput(endpoint, {
+          status: {
+            status: "error",
+            error: `Error reading from node ${msg.topic}: ${err}`,
+          },
+        });
+      }
+    };
+
+    const onActionWrite = async (
+      endpoint: string,
+      session: ClientSession,
+      msg: NodeMessageInFlow & {
+        dataType: DataTypeSchema;
+        topic: string;
+        payload: any;
+      }
+    ): Promise<void> => {
+      if (!msg.topic) {
+        this.error("No topic specified for write action", msg);
+        return;
+      }
+
+      if (msg.payload === undefined || msg.payload === null) {
+        this.error("No payload specified for write action", msg);
+        return;
+      }
+
+      try {
+        await session.write({
+          nodeId: msg.topic,
+          attributeId: 13, // Value attribute
+          value: {
+            value: {
+              value: msg.payload,
+              dataType: msg.dataType || DataType.String, // Default to String if not specified
+            },
+          },
+        });
+      } catch (err) {
+        sendOutput(endpoint, {
+          status: {
+            status: "error",
+            error: `Error writing to node ${msg.topic}: ${err}`,
+          },
+        });
+      }
+    };
+
     this.on(
       "input",
       async (
         msg: NodeMessageInFlow & {
           opcuaConfig?: OpcuaConfigOptions | null;
           action?: OpcuaClientAction;
-          dataType?: string | null;
+          dataType?: DataTypeSchema | null;
           topic?: string;
-        },
-        _send,
-        done
+          payload?: any;
+        }
+        // _send,
+        // done
       ) => {
         if (!this.config && !msg.opcuaConfig) {
           this.error("No OPC UA config node specified", msg);
@@ -160,6 +277,18 @@ const nodeInit: NodeInitializer = (RED): void => {
           return;
         }
 
+        const endpoint = opcuaConfig.value.endpoint;
+
+        if (!endpoint) {
+          this.error("No endpoint specified in OPC UA config", msg);
+          return;
+        }
+
+        const connection = connectionPool.get(endpoint);
+
+        let client = connection?.client ?? null;
+        let session = connection?.session ?? null;
+
         if (!client) {
           client = OPCUAClient.create({
             connectionStrategy: {
@@ -173,11 +302,26 @@ const nodeInit: NodeInitializer = (RED): void => {
             endpointMustExist: false,
           });
 
-          await client.connect(opcuaConfig.value.endpoint);
+          await client.connect(endpoint);
 
-          client.on("connection_reestablished", onReestablished);
-          client.on("backoff", onBackoff);
-          client.on("start_reconnection", onStartReconnection);
+          connectionPool.set(endpoint, {
+            client,
+            session: null,
+          });
+
+          client.on("connection_reestablished", () =>
+            onReestablished(endpoint)
+          );
+          client.on("backoff", (count, delay) =>
+            onBackoff(endpoint, count, delay)
+          );
+          client.on("start_reconnection", () => onStartReconnection(endpoint));
+        }
+
+        const existingSession = connectionPool.get(endpoint)?.session;
+
+        if (existingSession) {
+          session = existingSession;
         }
 
         if (!session) {
@@ -204,7 +348,13 @@ const nodeInit: NodeInitializer = (RED): void => {
 
           session = await client.createSession(userIdentity);
 
+          session.on("keepalive", onSessionKeepAlive);
           session.on("session_closed", onSessionClosed);
+
+          connectionPool.set(opcuaConfig.value.endpoint, {
+            client,
+            session,
+          });
         }
 
         const action = msg.action ?? this.action;
@@ -214,8 +364,37 @@ const nodeInit: NodeInitializer = (RED): void => {
           return;
         }
 
-        // send(msg);
-        done();
+        const dataTypeOption = Schema.decodeUnknownOption(DataTypeSchema)(
+          msg.dataType
+        );
+
+        if (Option.isNone(dataTypeOption)) {
+          this.error("Invalid data type specified", msg);
+          return;
+        }
+
+        const dataType = dataTypeOption.value;
+        const topic = msg.topic;
+
+        if (!topic) {
+          this.error("No topic specified", msg);
+          return;
+        }
+
+        if (action === OpcuaClientActionEnum.READ) {
+          onActionRead(endpoint, session, {
+            ...msg,
+            topic,
+            dataType,
+          });
+        } else if (action === OpcuaClientActionEnum.WRITE) {
+          onActionWrite(endpoint, session, {
+            ...msg,
+            topic,
+            dataType,
+            payload: msg.payload,
+          });
+        }
       }
     );
   }

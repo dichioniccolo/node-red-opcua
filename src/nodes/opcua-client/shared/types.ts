@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema";
+import { DataType } from "node-opcua";
 
-enum OpcuaClientActionEnum {
+export enum OpcuaClientActionEnum {
   READ = "read",
   WRITE = "write",
 }
@@ -23,3 +24,7 @@ export const OpcuaClientStatus = Schema.Union(
 );
 
 export type OpcuaClientStatus = typeof OpcuaClientStatus.Type;
+
+export const DataTypeSchema = Schema.Enums(DataType);
+
+export type DataTypeSchema = typeof DataTypeSchema.Type;
