@@ -1,16 +1,12 @@
 import { EditorRED } from "node-red";
 import { OpcuaConfigEditorNodeProperties } from "./modules/types";
+import { OpcuaConfigCredentialsOptions } from "../shared/types";
 
 declare const RED: EditorRED;
 
 RED.nodes.registerType<
   OpcuaConfigEditorNodeProperties,
-  {
-    username: string;
-    password: string;
-    certificate: string;
-    privateKey: string;
-  }
+  OpcuaConfigCredentialsOptions
 >("opcua-config", {
   category: "config",
   defaults: {
@@ -20,6 +16,7 @@ RED.nodes.registerType<
     mode: { value: "anonymous" },
   } as any,
   credentials: {
+    mode: { type: "text" },
     username: { type: "text" },
     password: { type: "password" },
     certificate: { type: "text" },

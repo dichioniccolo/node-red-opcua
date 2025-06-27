@@ -35,4 +35,10 @@ export type OpcuaConfigOptions = {
   endpoint: string;
   securityPolicy: SecurityPolicy;
   securityMode: SecurityMode;
+  credentials: OpcuaConfigCredentialsOptions;
 } & (AnonymousSchema | UsernameSchema | CertificateSchema);
+
+export type OpcuaConfigCredentialsOptions =
+  | AnonymousSchema
+  | UsernameSchema
+  | CertificateSchema;

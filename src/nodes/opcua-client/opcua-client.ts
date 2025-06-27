@@ -8,6 +8,7 @@ import {
   OPCUAClient,
   UserIdentityInfo,
   UserTokenType,
+  ClientSubscription,
 } from "node-opcua";
 import { OpcuaConfigOptions } from "../opcua-config/shared/types";
 import { OpcuaClientActionEnum, OpcuaClientStatus } from "./shared/types";
@@ -16,7 +17,6 @@ const nodeInit: NodeInitializer = (RED): void => {
   const connectionPool = new Map<
     string,
     {
-      connected: boolean;
       client: OPCUAClient;
       session: ClientSession | null;
     }
@@ -304,11 +304,10 @@ const nodeInit: NodeInitializer = (RED): void => {
 
         const connection = connectionPool.get(endpoint);
 
-        let connected = connection?.connected ?? false;
         let client = connection?.client ?? null;
         let session = connection?.session ?? null;
 
-        if (!client || !connected) {
+        if (!client) {
           const localClient = OPCUAClient.create({
             connectionStrategy: {
               maxRetry: Infinity,
@@ -320,18 +319,16 @@ const nodeInit: NodeInitializer = (RED): void => {
             clientName: this.name,
             endpointMustExist: false,
             keepSessionAlive: true, // Opcua already handles session keep-alive
-            keepAliveInterval: 2 * 1000,
+            keepAliveInterval: 3 * 1000,
           });
 
-          await localClient.connect(endpoint);
+          try {
+            await localClient.connect(endpoint);
+          } catch (e) {
+            this.error(e, msg);
 
-          connected = true;
-
-          connectionPool.set(endpoint, {
-            connected,
-            client: localClient,
-            session: null,
-          });
+            return;
+          }
 
           localClient.on("connection_reestablished", () =>
             onReestablished(endpoint)
@@ -345,6 +342,11 @@ const nodeInit: NodeInitializer = (RED): void => {
           localClient.on("connection_lost", () => onConnectionLost(endpoint));
 
           client = localClient;
+
+          connectionPool.set(endpoint, {
+            client,
+            session: null,
+          });
         }
 
         if (!client) {
@@ -378,13 +380,18 @@ const nodeInit: NodeInitializer = (RED): void => {
             };
           }
 
-          session = await client.createSession(userIdentity);
+          try {
+            session = await client.createSession(userIdentity);
+          } catch (e) {
+            this.error(e, msg);
+
+            return;
+          }
 
           session.on("keepalive", () => onSessionKeepAlive(endpoint));
           session.on("session_closed", () => onSessionClosed(endpoint));
 
           connectionPool.set(opcuaConfig.endpoint, {
-            connected,
             client,
             session,
           });

@@ -1,6 +1,7 @@
 import { NodeInitializer } from "node-red";
 import { OpcuaConfigNode, OpcuaConfigNodeDef } from "./modules/types";
 import mustache from "mustache";
+import { OpcuaConfigCredentialsOptions } from "./shared/types";
 
 const nodeInit: NodeInitializer = (RED): void => {
   function OpcuaConfigNodeConstructor(
@@ -15,18 +16,31 @@ const nodeInit: NodeInitializer = (RED): void => {
     this.securityPolicy = config.securityPolicy;
     this.securityMode = config.securityMode;
 
-    this.mode = config.mode;
+    this.mode = this.credentials?.mode ?? "anonymous";
 
-    if (config.mode === "username" && this.mode === config.mode) {
-      this.username = config.username;
-      this.password = config.password;
-    } else if (config.mode === "certificate" && this.mode === config.mode) {
-      this.certificate = config.certificate;
-      this.privateKey = config.privateKey;
+    if (this.mode === "username") {
+      this.username = this.credentials?.username ?? "";
+      this.password = this.credentials?.password ?? "";
+    } else if (this.mode === "certificate") {
+      this.certificate = this.credentials?.certificate ?? "";
+      this.privateKey = this.credentials?.privateKey ?? "";
     }
   }
 
-  RED.nodes.registerType("opcua-config", OpcuaConfigNodeConstructor);
+  RED.nodes.registerType<
+    OpcuaConfigNode,
+    OpcuaConfigNodeDef,
+    unknown,
+    OpcuaConfigCredentialsOptions
+  >("opcua-config", OpcuaConfigNodeConstructor, {
+    credentials: {
+      mode: { type: "text" },
+      username: { type: "text" },
+      password: { type: "password" },
+      certificate: { type: "text" },
+      privateKey: { type: "password" },
+    },
+  });
 };
 
 export = nodeInit;
