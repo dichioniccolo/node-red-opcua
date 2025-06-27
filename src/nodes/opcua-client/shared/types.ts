@@ -1,7 +1,6 @@
 export enum OpcuaClientActionEnum {
   READ = "read",
   WRITE = "write",
-  SUBSCRIBE = "subscribe",
 }
 
 export interface OpcuaClientOptions {

@@ -9,18 +9,151 @@ import {
   UserIdentityInfo,
   UserTokenType,
   ClientSubscription,
+  AttributeIds,
 } from "node-opcua";
 import { OpcuaConfigOptions } from "../opcua-config/shared/types";
 import { OpcuaClientActionEnum, OpcuaClientStatus } from "./shared/types";
 
-const nodeInit: NodeInitializer = (RED): void => {
-  const connectionPool = new Map<
-    string,
-    {
-      client: OPCUAClient;
-      session: ClientSession | null;
+class NodeRedOpcuaConnection {
+  private session: ClientSession | null = null;
+
+  private subscriptions: Map<string, ClientSubscription> = new Map();
+
+  constructor(
+    public endpoint: string,
+    public client: OPCUAClient
+  ) {
+    // client.on("session_closed", () => {
+    //   this.session = null;
+    // });
+    // client.on("connection_reestablished", () => {
+    //   this.session = null; // Reset session on reconnection
+    // });
+  }
+
+  public async disconnect() {
+    await this.client.disconnect();
+  }
+
+  public async createSession(userIdentityInfo: UserIdentityInfo) {
+    if (this.session) {
+      return this.session;
     }
-  >();
+
+    this.session = await this.client.createSession(userIdentityInfo);
+
+    return this.session;
+  }
+
+  public getSession(): ClientSession {
+    if (!this.session) {
+      throw new Error("Session not created yet");
+    }
+
+    return this.session;
+  }
+
+  public async destroySession() {
+    if (!this.session) {
+      return;
+    }
+
+    try {
+      this.session.removeAllListeners();
+
+      await this.session.close();
+    } finally {
+      this.session = null;
+    }
+  }
+
+  public async read(nodeId: string) {
+    if (!this.session) {
+      throw new Error("Session not created yet");
+    }
+
+    const dataValue = await this.session.read({
+      nodeId,
+    });
+
+    return {
+      value: dataValue.value.value,
+      dataType: dataValue.value.dataType,
+    };
+  }
+
+  public async write(
+    nodeId: string,
+    value: any,
+    dataType: DataType = DataType.String
+  ) {
+    if (!this.session) {
+      throw new Error("Session not created yet");
+    }
+
+    await this.session.write({
+      nodeId,
+      attributeId: AttributeIds.Value,
+      value: {
+        value: {
+          value,
+          dataType,
+        },
+      },
+    });
+  }
+
+  public async writeMultiple(
+    nodes: Array<{
+      nodeId: string;
+      value: any;
+      dataType: DataType;
+    }>
+  ) {
+    if (!this.session) {
+      throw new Error("Session not created yet");
+    }
+
+    const writeValues = nodes.map((node) => ({
+      nodeId: node.nodeId,
+      attributeId: AttributeIds.Value,
+      value: {
+        value: {
+          value: node.value,
+          dataType: node.dataType,
+        },
+      },
+    }));
+
+    await this.session.write(writeValues);
+  }
+
+  public async readMultiple(
+    nodes: Array<{
+      nodeId: string;
+      dataType: DataType;
+    }>
+  ) {
+    if (!this.session) {
+      throw new Error("Session not created yet");
+    }
+
+    const readValues = nodes.map((node) => ({
+      nodeId: node.nodeId,
+      attributeId: AttributeIds.Value,
+    }));
+
+    const dataValues = await this.session.read(readValues);
+
+    return dataValues.map((dataValue) => ({
+      value: dataValue.value.value,
+      dataType: dataValue.value.dataType,
+    }));
+  }
+}
+
+const nodeInit: NodeInitializer = (RED): void => {
+  const connectionPool = new Map<string, NodeRedOpcuaConnection>();
 
   function OpcuaClientNodeConstructor(
     this: OpcuaClientNode,
@@ -102,12 +235,14 @@ const nodeInit: NodeInitializer = (RED): void => {
       );
     };
 
-    const onSessionClosed = (endpoint: string) => {
+    const onSessionClosed = async (endpoint: string) => {
       const connection = connectionPool.get(endpoint);
 
-      if (connection) {
-        connection.session = null;
+      if (!connection) {
+        return;
       }
+
+      await connection.destroySession();
 
       sendOutput(endpoint, {
         status: {
@@ -117,12 +252,14 @@ const nodeInit: NodeInitializer = (RED): void => {
       });
     };
 
-    const onConnectionLost = (endpoint: string) => {
+    const onConnectionLost = async (endpoint: string) => {
       const connection = connectionPool.get(endpoint);
 
-      if (connection) {
-        connection.session = null;
+      if (!connection) {
+        return;
       }
+
+      await connection.destroySession();
 
       sendNodeStatus(
         endpoint,
@@ -153,30 +290,9 @@ const nodeInit: NodeInitializer = (RED): void => {
     };
 
     this.on("close", async (removed: boolean, done: () => void) => {
-      for (const [endpoint, { client, session }] of connectionPool) {
-        if (session) {
-          try {
-            await session.close();
-
-            session.removeAllListeners();
-
-            this.log(`${endpoint} session closed successfully`);
-          } catch (err) {
-            this.error(`Error closing session for endpoint ${endpoint}`);
-          }
-        }
-
-        if (client) {
-          try {
-            await client.disconnect();
-
-            client.removeAllListeners();
-
-            this.log(`${endpoint} client disconnected successfully`);
-          } catch (err) {
-            this.error(`Error disconnecting client for endpoint ${endpoint}`);
-          }
-        }
+      for (const [endpoint, connection] of connectionPool) {
+        await connection.destroySession();
+        await connection.disconnect();
 
         sendNodeStatus(
           endpoint,
@@ -196,7 +312,7 @@ const nodeInit: NodeInitializer = (RED): void => {
 
     const onActionRead = async (
       endpoint: string,
-      session: ClientSession,
+      connection: NodeRedOpcuaConnection,
       msg: NodeMessageInFlow & {
         dataType: DataType;
         topic: string;
@@ -208,15 +324,13 @@ const nodeInit: NodeInitializer = (RED): void => {
       }
 
       try {
-        const dataValue = await session.read({
-          nodeId: msg.topic,
-        });
+        const dataValue = await connection.read(msg.topic);
 
         sendOutput(endpoint, {
           value: {
             topic: msg.topic,
-            payload: dataValue.value.value,
-            dataType: dataValue.value.dataType,
+            payload: dataValue.value,
+            dataType: dataValue.dataType,
           },
         });
       } catch (err) {
@@ -231,7 +345,7 @@ const nodeInit: NodeInitializer = (RED): void => {
 
     const onActionWrite = async (
       endpoint: string,
-      session: ClientSession,
+      connection: NodeRedOpcuaConnection,
       msg: NodeMessageInFlow & {
         dataType: DataType;
         topic: string;
@@ -254,16 +368,7 @@ const nodeInit: NodeInitializer = (RED): void => {
       }
 
       try {
-        await session.write({
-          nodeId: msg.topic,
-          attributeId: 13, // Value attribute
-          value: {
-            value: {
-              value: msg.payload,
-              dataType: msg.dataType || DataType.String, // Default to String if not specified
-            },
-          },
-        });
+        await connection.write(msg.topic, msg.payload, msg.dataType);
       } catch (err) {
         sendOutput(endpoint, {
           status: {
@@ -302,13 +407,10 @@ const nodeInit: NodeInitializer = (RED): void => {
           return;
         }
 
-        const connection = connectionPool.get(endpoint);
+        let connection = connectionPool.get(endpoint);
 
-        let client = connection?.client ?? null;
-        let session = connection?.session ?? null;
-
-        if (!client) {
-          const localClient = OPCUAClient.create({
+        if (!connection) {
+          const client = OPCUAClient.create({
             connectionStrategy: {
               maxRetry: Infinity,
               initialDelay: 5 * 1000,
@@ -323,43 +425,24 @@ const nodeInit: NodeInitializer = (RED): void => {
           });
 
           try {
-            await localClient.connect(endpoint);
+            await client.connect(endpoint);
           } catch (e) {
             this.error(e, msg);
 
             return;
           }
 
-          localClient.on("connection_reestablished", () =>
+          client.on("connection_reestablished", () =>
             onReestablished(endpoint)
           );
-          localClient.on("backoff", (count, delay) =>
+          client.on("backoff", (count, delay) =>
             onBackoff(endpoint, count, delay)
           );
-          localClient.on("start_reconnection", () =>
-            onStartReconnection(endpoint)
-          );
-          localClient.on("connection_lost", () => onConnectionLost(endpoint));
+          client.on("start_reconnection", () => onStartReconnection(endpoint));
+          client.on("connection_lost", () => onConnectionLost(endpoint));
 
-          client = localClient;
+          const localConnection = new NodeRedOpcuaConnection(endpoint, client);
 
-          connectionPool.set(endpoint, {
-            client,
-            session: null,
-          });
-        }
-
-        if (!client) {
-          return;
-        }
-
-        const existingSession = connectionPool.get(endpoint)?.session;
-
-        if (existingSession) {
-          session = existingSession;
-        }
-
-        if (!session) {
           let userIdentity: UserIdentityInfo;
 
           if (opcuaConfig.mode === "username") {
@@ -380,21 +463,14 @@ const nodeInit: NodeInitializer = (RED): void => {
             };
           }
 
-          try {
-            session = await client.createSession(userIdentity);
-          } catch (e) {
-            this.error(e, msg);
-
-            return;
-          }
+          const session = await localConnection.createSession(userIdentity);
 
           session.on("keepalive", () => onSessionKeepAlive(endpoint));
           session.on("session_closed", () => onSessionClosed(endpoint));
 
-          connectionPool.set(opcuaConfig.endpoint, {
-            client,
-            session,
-          });
+          connectionPool.set(endpoint, localConnection);
+
+          connection = localConnection;
 
           sendNodeStatus(
             endpoint,
@@ -424,13 +500,13 @@ const nodeInit: NodeInitializer = (RED): void => {
         }
 
         if (action === OpcuaClientActionEnum.READ) {
-          await onActionRead(endpoint, session, {
+          await onActionRead(endpoint, connection, {
             ...msg,
             topic,
             dataType,
           });
         } else if (action === OpcuaClientActionEnum.WRITE) {
-          await onActionWrite(endpoint, session, {
+          await onActionWrite(endpoint, connection, {
             ...msg,
             topic,
             dataType,
