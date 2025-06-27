@@ -8,7 +8,6 @@ import {
   OPCUAClient,
   UserIdentityInfo,
   UserTokenType,
-  ClientSubscription,
   AttributeIds,
 } from "node-opcua";
 import { OpcuaConfigOptions } from "../opcua-config/shared/types";
@@ -17,7 +16,7 @@ import { OpcuaClientActionEnum, OpcuaClientStatus } from "./shared/types";
 class NodeRedOpcuaConnection {
   private session: ClientSession | null = null;
 
-  private subscriptions: Map<string, ClientSubscription> = new Map();
+  private connected = false;
 
   constructor(
     public endpoint: string,
@@ -31,8 +30,32 @@ class NodeRedOpcuaConnection {
     // });
   }
 
+  public async connect() {
+    if (this.connected) {
+      return;
+    }
+
+    try {
+      await this.client.connect(this.endpoint);
+      this.connected = true;
+    } catch (err) {
+      throw new Error(`Failed to connect to OPC UA server: ${err}`);
+    }
+  }
+
   public async disconnect() {
-    await this.client.disconnect();
+    if (!this.connected) {
+      return;
+    }
+
+    await this.destroySession();
+
+    try {
+      await this.client.disconnect();
+      this.connected = false;
+    } catch (err) {
+      throw new Error(`Failed to disconnect from OPC UA server: ${err}`);
+    }
   }
 
   public async createSession(userIdentityInfo: UserIdentityInfo) {
@@ -45,9 +68,9 @@ class NodeRedOpcuaConnection {
     return this.session;
   }
 
-  public getSession(): ClientSession {
+  public getSession(): ClientSession | null {
     if (!this.session) {
-      throw new Error("Session not created yet");
+      return null;
     }
 
     return this.session;
@@ -292,7 +315,6 @@ const nodeInit: NodeInitializer = (RED): void => {
 
     this.on("close", async (removed: boolean, done: () => void) => {
       for (const [endpoint, connection] of connectionPool) {
-        await connection.destroySession();
         await connection.disconnect();
 
         sendNodeStatus(
@@ -498,14 +520,6 @@ const nodeInit: NodeInitializer = (RED): void => {
             keepAliveInterval: 3 * 1000,
           });
 
-          try {
-            await client.connect(endpoint);
-          } catch (e) {
-            this.error(e, msg);
-
-            return;
-          }
-
           client.on("connection_reestablished", () =>
             onReestablished(endpoint)
           );
@@ -517,6 +531,24 @@ const nodeInit: NodeInitializer = (RED): void => {
 
           const localConnection = new NodeRedOpcuaConnection(endpoint, client);
 
+          connectionPool.set(endpoint, localConnection);
+
+          connection = localConnection;
+
+          sendNodeStatus(
+            endpoint,
+            {
+              fill: "green",
+              shape: "dot",
+              text: "Connected",
+            },
+            "connected"
+          );
+        }
+
+        await connection.connect();
+
+        if (!connection.getSession()) {
           let userIdentity: UserIdentityInfo;
 
           if (opcuaConfig.mode === "username") {
@@ -537,24 +569,10 @@ const nodeInit: NodeInitializer = (RED): void => {
             };
           }
 
-          const session = await localConnection.createSession(userIdentity);
+          const session = await connection.createSession(userIdentity);
 
           session.on("keepalive", () => onSessionKeepAlive(endpoint));
           session.on("session_closed", () => onSessionClosed(endpoint));
-
-          connectionPool.set(endpoint, localConnection);
-
-          connection = localConnection;
-
-          sendNodeStatus(
-            endpoint,
-            {
-              fill: "green",
-              shape: "dot",
-              text: "Connected",
-            },
-            "connected"
-          );
         }
 
         const action = msg.action ?? this.action;
