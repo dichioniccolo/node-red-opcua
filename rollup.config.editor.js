@@ -1,9 +1,9 @@
 import fs from "fs";
-import glob from "glob";
+import * as glob from "glob";
 import path from "path";
 import typescript from "@rollup/plugin-typescript";
 
-import packageJson from "./package.json";
+import packageJson from "./package.json" with { type: "json" };
 
 const allNodeTypes = Object.keys(packageJson["node-red"].nodes);
 
@@ -12,7 +12,15 @@ const htmlWatch = () => {
     name: "htmlWatch",
     load(id) {
       const editorDir = path.dirname(id);
-      const htmlFiles = glob.sync(path.join(editorDir, "*.html"));
+
+      // Use glob with a pattern like '/absolute/path/**/*.html'
+      const pattern = path.posix.join(
+        editorDir.split(path.sep).join(path.posix.sep),
+        "*.html"
+      );
+
+      const htmlFiles = glob.sync(pattern, { absolute: true });
+
       htmlFiles.map((file) => this.addWatchFile(file));
     },
   };
@@ -23,7 +31,15 @@ const htmlBundle = () => {
     name: "htmlBundle",
     renderChunk(code, chunk, _options) {
       const editorDir = path.dirname(chunk.facadeModuleId);
-      const htmlFiles = glob.sync(path.join(editorDir, "*.html"));
+
+      // Use glob with a pattern like '/absolute/path/**/*.html'
+      const pattern = path.posix.join(
+        editorDir.split(path.sep).join(path.posix.sep),
+        "*.html"
+      );
+
+      const htmlFiles = glob.sync(pattern, { absolute: true });
+
       const htmlContents = htmlFiles.map((fPath) => fs.readFileSync(fPath));
 
       code =

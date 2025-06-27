@@ -4,14 +4,23 @@ import { OpcuaClientEditorNodeProperties } from "./modules/types";
 declare const RED: EditorRED;
 
 RED.nodes.registerType<OpcuaClientEditorNodeProperties>("opcua-client", {
-  category: "function",
-  color: "#a6bbcf",
+  category: "opcua",
+  color: "#3FADB5",
   defaults: {
     name: { value: "" },
+    config: {
+      type: "opcua-config",
+      required: false,
+      value: "",
+    },
+    action: {
+      required: false,
+      value: "",
+    },
   },
   inputs: 1,
-  outputs: 1,
-  icon: "file.png",
+  outputs: 2,
+  icon: "bridge-dash.svg",
   paletteLabel: "opcua client",
   label: function () {
     return this.name || "opcua client";

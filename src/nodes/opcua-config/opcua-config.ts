@@ -15,12 +15,12 @@ const nodeInit: NodeInitializer = (RED): void => {
     this.securityPolicy = config.securityPolicy;
     this.securityMode = config.securityMode;
 
-    this.type = config.type;
+    this.mode = config.mode;
 
-    if (config.type === "username" && this.type === config.type) {
+    if (config.mode === "username" && this.mode === config.mode) {
       this.username = config.username;
       this.password = config.password;
-    } else if (config.type === "certificate" && this.type === config.type) {
+    } else if (config.mode === "certificate" && this.mode === config.mode) {
       this.certificate = config.certificate;
       this.privateKey = config.privateKey;
     }

@@ -1,53 +1,38 @@
-import * as Schema from "effect/Schema";
+export type SecurityPolicy =
+  | "Invalid"
+  | "None"
+  | "Basic128"
+  | "Basic192"
+  | "Basic192Rsa15"
+  | "Basic256Rsa15"
+  | "Basic256Sha256"
+  | "Aes128_Sha256_RsaOaep"
+  | "Aes256_Sha256_RsaPss"
+  | "PubSub_Aes128_CTR"
+  | "PubSub_Aes256_CTR"
+  | "Basic128Rsa15"
+  | "Basic256";
 
-export const SecurityPolicy = Schema.Union(
-  Schema.Literal("Invalid"),
-  Schema.Literal("None"),
-  Schema.Literal("Basic128"),
-  Schema.Literal("Basic192"),
-  Schema.Literal("Basic192Rsa15"),
-  Schema.Literal("Basic256Rsa15"),
-  Schema.Literal("Basic256Sha256"),
-  Schema.Literal("Aes128_Sha256_RsaOaep"),
-  Schema.Literal("Aes256_Sha256_RsaPss"),
-  Schema.Literal("PubSub_Aes128_CTR"),
-  Schema.Literal("PubSub_Aes256_CTR"),
-  Schema.Literal("Basic128Rsa15"),
-  Schema.Literal("Basic256")
-);
+export type SecurityMode = "None" | "Sign" | "SignAndEncrypt";
 
-export const SecurityMode = Schema.Union(
-  Schema.Literal("None"),
-  Schema.Literal("Sign"),
-  Schema.Literal("SignAndEncrypt")
-);
+type AnonymousSchema = {
+  mode: "anonymous";
+};
 
-const AnonymousSchema = Schema.Struct({
-  type: Schema.Literal("anonymous"),
-});
+type UsernameSchema = {
+  mode: "username";
+  username: string;
+  password: string;
+};
 
-const UsernameSchema = Schema.Struct({
-  type: Schema.Literal("username"),
-  username: Schema.String,
-  password: Schema.String,
-});
+type CertificateSchema = {
+  mode: "certificate";
+  certificate: string;
+  privateKey: string;
+};
 
-const CertificateSchema = Schema.Struct({
-  type: Schema.Literal("certificate"),
-  certificate: Schema.String,
-  privateKey: Schema.String,
-});
-
-export const OpcuaConfigOptions = Schema.Union(
-  Schema.Struct({
-    endpoint: Schema.String,
-    securityPolicy: SecurityPolicy,
-    securityMode: SecurityMode,
-  })
-).pipe(
-  Schema.extend(
-    Schema.Union(AnonymousSchema, UsernameSchema, CertificateSchema)
-  )
-);
-
-export type OpcuaConfigOptions = typeof OpcuaConfigOptions.Type;
+export type OpcuaConfigOptions = {
+  endpoint: string;
+  securityPolicy: SecurityPolicy;
+  securityMode: SecurityMode;
+} & (AnonymousSchema | UsernameSchema | CertificateSchema);

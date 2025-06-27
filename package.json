@@ -12,7 +12,7 @@
     "build": "rm -rf dist && pnpm copy && pnpm build:editor && pnpm build:runtime",
     "test": "jest --forceExit --detectOpenHandles --colors",
     "test:watch": "jest --forceExit --detectOpenHandles --watchAll",
-    "dev": "rm -rf dist && pnpm copy && concurrently --kill-others --names 'COPY,EDITOR,RUNTIME,TEST' --prefix '({name})' --prefix-colors 'yellow.bold,cyan.bold,greenBright.bold,magenta.bold' 'onchange -v \"src/**/*.png\" \"src/**/*.svg\" -- pnpm copy' 'pnpm build:editor:watch' 'pnpm build:runtime:watch' 'sleep 10; pnpm test:watch'",
+    "dev": "rm -rf dist && pnpm copy && concurrently --kill-others --names \"COPY,EDITOR,RUNTIME\" --prefix \"({name})\" --prefix-colors \"yellow.bold,cyan.bold,greenBright.bold\" \"onchange -v 'src/**/*.png' 'src/**/*.svg' -- pnpm copy\" \"pnpm build:editor:watch\" \"pnpm build:runtime:watch\"",
     "lint": "prettier --ignore-path .eslintignore --check '**/*.{js,ts,md}'; eslint --ext .js,.ts .",
     "lint:fix": "prettier --ignore-path .eslintignore --write '**/*.{js,ts,md}'; eslint --ext .js,.ts . --fix"
   },
@@ -20,11 +20,13 @@
   "license": "MIT",
   "node-red": {
     "nodes": {
-      "opcua-config": "./dist/nodes/opcua-config/opcua-config.js",
-      "opcua-client": "./dist/nodes/opcua-client/opcua-client.js"
+      "opcua-client": "./dist/nodes/opcua-client/opcua-client.js",
+      "opcua-config": "./dist/nodes/opcua-config/opcua-config.js"
     }
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.6",
+    "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-typescript": "^12.1.3",
     "@types/express": "^5.0.3",
     "@types/jest": "^30.0.0",
@@ -43,9 +45,8 @@
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-jest": "^29.0.1",
     "eslint-plugin-prettier": "^5.5.0",
-    "glob": "^11.0.3",
+    "glob": "11.0.2",
     "jest": "^30.0.2",
-    "mustache": "^4.2.0",
     "node-red": "^4.0.9",
     "node-red-node-test-helper": "^0.3.4",
     "onchange": "^7.0.2",
@@ -67,7 +68,8 @@
     ]
   },
   "dependencies": {
-    "effect": "^3.16.8",
+    "effect": "^3.16.10",
+    "mustache": "^4.2.0",
     "node-opcua": "^2.156.0",
     "node-opcua-crypto": "^4.16.0"
   }
