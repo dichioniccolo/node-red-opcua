@@ -1,6 +1,8 @@
 export enum OpcuaClientActionEnum {
   READ = "read",
   WRITE = "write",
+  READ_MULTIPLE = "read-multiple",
+  WRITE_MULTIPLE = "write-multiple",
 }
 
 export interface OpcuaClientOptions {

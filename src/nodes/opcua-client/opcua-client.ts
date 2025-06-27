@@ -145,7 +145,8 @@ class NodeRedOpcuaConnection {
 
     const dataValues = await this.session.read(readValues);
 
-    return dataValues.map((dataValue) => ({
+    return dataValues.map((dataValue, index) => ({
+      nodeId: nodes[index].nodeId,
       value: dataValue.value.value,
       dataType: dataValue.value.dataType,
     }));
@@ -379,6 +380,79 @@ const nodeInit: NodeInitializer = (RED): void => {
       }
     };
 
+    const onActionReadMultiple = async (
+      endpoint: string,
+      connection: NodeRedOpcuaConnection,
+      msg: NodeMessageInFlow & {
+        payload: Array<{ nodeId: string; dataType?: DataType }>;
+      }
+    ): Promise<void> => {
+      if (!Array.isArray(msg.payload) || msg.payload.length === 0) {
+        this.error("No payload specified for read-multiple action", msg);
+        return;
+      }
+
+      const nodes = msg.payload.map((node) => ({
+        nodeId: node.nodeId,
+        dataType: node.dataType || DataType.String,
+      }));
+
+      try {
+        const values = await connection.readMultiple(nodes);
+
+        sendOutput(endpoint, {
+          value: values.map((value) => ({
+            topic: value.nodeId,
+            payload: value.value,
+            dataType: value.dataType,
+          })),
+        });
+      } catch (err) {
+        sendOutput(endpoint, {
+          status: {
+            status: "error",
+            error: `Error reading multiple nodes: ${err}`,
+          },
+        });
+      }
+    };
+
+    const onActionWriteMultiple = async (
+      endpoint: string,
+      connection: NodeRedOpcuaConnection,
+      msg: NodeMessageInFlow & {
+        payload: Array<{ nodeId: string; value: any; dataType: DataType }>;
+      }
+    ): Promise<void> => {
+      if (
+        !Array.isArray(msg.payload) ||
+        msg.payload.length === 0 ||
+        !msg.payload.every(
+          (node) => node.nodeId && node.value !== undefined && node.dataType
+        )
+      ) {
+        this.error("Invalid payload for write-multiple action", msg);
+        return;
+      }
+
+      const nodes = msg.payload.map((node) => ({
+        nodeId: node.nodeId,
+        value: node.value,
+        dataType: node.dataType,
+      }));
+
+      try {
+        await connection.writeMultiple(nodes);
+      } catch (err) {
+        sendOutput(endpoint, {
+          status: {
+            status: "error",
+            error: `Error writing multiple nodes: ${err}`,
+          },
+        });
+      }
+    };
+
     this.on(
       "input",
       async (
@@ -510,6 +584,16 @@ const nodeInit: NodeInitializer = (RED): void => {
             ...msg,
             topic,
             dataType,
+            payload: msg.payload,
+          });
+        } else if (action === OpcuaClientActionEnum.READ_MULTIPLE) {
+          await onActionReadMultiple(endpoint, connection, {
+            ...msg,
+            payload: msg.payload,
+          });
+        } else if (action === OpcuaClientActionEnum.WRITE_MULTIPLE) {
+          await onActionWriteMultiple(endpoint, connection, {
+            ...msg,
             payload: msg.payload,
           });
         }
