@@ -55,6 +55,10 @@ class NodeRedOpcuaConnection {
   }
 
   public async createSession(userIdentityInfo: UserIdentityInfo) {
+    if (!this.connected) {
+      return null;
+    }
+
     if (this.session) {
       return this.session;
     }
@@ -592,6 +596,11 @@ const nodeInit: NodeInitializer = (RED): void => {
           }
 
           const session = await connection.createSession(userIdentity);
+
+          if (!session) {
+            this.error("Failed to create OPC UA session", msg);
+            return;
+          }
 
           session.on("keepalive", () => onSessionKeepAlive(endpoint));
           session.on("session_closed", () => onSessionClosed(endpoint));
