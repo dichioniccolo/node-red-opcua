@@ -38,9 +38,7 @@ class NodeRedOpcuaConnection {
     try {
       await this.client.connect(this.endpoint);
       this.connected = true;
-    } catch (err) {
-      throw new Error(`Failed to connect to OPC UA server: ${err}`);
-    }
+    } catch (err) {}
   }
 
   public async disconnect() {
@@ -53,9 +51,7 @@ class NodeRedOpcuaConnection {
     try {
       await this.client.disconnect();
       this.connected = false;
-    } catch (err) {
-      throw new Error(`Failed to disconnect from OPC UA server: ${err}`);
-    }
+    } catch (err) {}
   }
 
   public async createSession(userIdentityInfo: UserIdentityInfo) {
@@ -92,7 +88,7 @@ class NodeRedOpcuaConnection {
 
   public async read(nodeId: string) {
     if (!this.session) {
-      throw new Error("Session not created yet");
+      return null;
     }
 
     const dataValue = await this.session.read({
@@ -111,7 +107,7 @@ class NodeRedOpcuaConnection {
     dataType: DataType = DataType.String
   ) {
     if (!this.session) {
-      throw new Error("Session not created yet");
+      return null;
     }
 
     await this.session.write({
@@ -134,7 +130,7 @@ class NodeRedOpcuaConnection {
     }>
   ) {
     if (!this.session) {
-      throw new Error("Session not created yet");
+      return null;
     }
 
     const writeValues = nodes.map((node) => ({
@@ -158,7 +154,7 @@ class NodeRedOpcuaConnection {
     }>
   ) {
     if (!this.session) {
-      throw new Error("Session not created yet");
+      return [];
     }
 
     const readValues = nodes.map((node) => ({
@@ -348,6 +344,16 @@ const nodeInit: NodeInitializer = (RED): void => {
 
       try {
         const dataValue = await connection.read(msg.topic);
+
+        if (!dataValue) {
+          sendOutput(endpoint, {
+            status: {
+              status: "error",
+              error: `Node ${msg.topic} not read`,
+            },
+          });
+          return;
+        }
 
         sendOutput(endpoint, {
           value: {
