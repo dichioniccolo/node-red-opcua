@@ -194,11 +194,14 @@ const nodeInit: NodeInitializer = (RED): void => {
     const sendOutput = (
       endpoint: string,
       output:
-        | { value: any }
+        | { originalMsg: NodeMessageInFlow; value: any }
         | { status: { status: OpcuaClientStatus; error?: unknown } }
     ) => {
       if ("value" in output) {
-        this.send([{ endpoint, payload: output.value }, null]);
+        this.send([
+          { ...output.originalMsg, endpoint, payload: output.value },
+          null,
+        ]);
         return;
       }
 
@@ -360,6 +363,7 @@ const nodeInit: NodeInitializer = (RED): void => {
         }
 
         sendOutput(endpoint, {
+          originalMsg: msg,
           value: {
             topic: msg.topic,
             payload: dataValue.value,
@@ -404,6 +408,7 @@ const nodeInit: NodeInitializer = (RED): void => {
         await connection.write(msg.topic, msg.payload, msg.dataType);
 
         sendOutput(endpoint, {
+          originalMsg: msg,
           value: {
             topic: msg.topic,
             payload: msg.payload,
@@ -441,6 +446,7 @@ const nodeInit: NodeInitializer = (RED): void => {
         const values = await connection.readMultiple(nodes);
 
         sendOutput(endpoint, {
+          originalMsg: msg,
           value: values.map((value) => ({
             topic: value.nodeId,
             payload: value.value,
@@ -485,6 +491,7 @@ const nodeInit: NodeInitializer = (RED): void => {
         await connection.writeMultiple(nodes);
 
         sendOutput(endpoint, {
+          originalMsg: msg,
           value: nodes.map((node) => ({
             topic: node.nodeId,
             payload: node.value,
@@ -560,16 +567,6 @@ const nodeInit: NodeInitializer = (RED): void => {
           connectionPool.set(endpoint, localConnection);
 
           connection = localConnection;
-
-          sendNodeStatus(
-            endpoint,
-            {
-              fill: "green",
-              shape: "dot",
-              text: "Connected",
-            },
-            "connected"
-          );
         }
 
         await connection.connect();
@@ -598,7 +595,10 @@ const nodeInit: NodeInitializer = (RED): void => {
           const session = await connection.createSession(userIdentity);
 
           if (!session) {
-            this.error("Failed to create OPC UA session", msg);
+            this.error(
+              "Failed to create OPC UA session, client is not connected",
+              msg
+            );
             return;
           }
 
