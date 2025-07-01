@@ -1,5 +1,11 @@
 # node-red-contrib-opcua-client
 
+## 0.0.5
+
+### Patch Changes
+
+- 7009fd4: keep original message on output
+
 ## 0.0.4
 
 ### Patch Changes
