@@ -2,6 +2,9 @@
   "name": "node-red-contrib-opcua-client",
   "version": "0.0.1",
   "description": "Description of the node set here",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "add-node": "node ./utils/add-node.js",
     "copy": "copyfiles -u 2 \"./src/nodes/**/*.{png,svg}\" \"./dist/nodes/\"",
@@ -25,6 +28,9 @@
       "opcua-config": "./dist/nodes/opcua-config/opcua-config.js"
     }
   },
+  "files": [
+    "dist"
+  ],
   "devDependencies": {
     "@changesets/changelog-github": "^0.5.1",
     "@changesets/cli": "^2.29.5",
