@@ -1,5 +1,11 @@
 # node-red-contrib-opcua-client
 
+## 0.0.4
+
+### Patch Changes
+
+- bf01719: do not create session if client is not connected
+
 ## 0.0.3
 
 ### Patch Changes
