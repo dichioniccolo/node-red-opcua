@@ -392,6 +392,14 @@ const nodeInit: NodeInitializer = (RED): void => {
 
       try {
         await connection.write(msg.topic, msg.payload, msg.dataType);
+
+        sendOutput(endpoint, {
+          value: {
+            topic: msg.topic,
+            payload: msg.payload,
+            dataType: msg.dataType,
+          },
+        });
       } catch (err) {
         sendOutput(endpoint, {
           status: {
@@ -465,6 +473,14 @@ const nodeInit: NodeInitializer = (RED): void => {
 
       try {
         await connection.writeMultiple(nodes);
+
+        sendOutput(endpoint, {
+          value: nodes.map((node) => ({
+            topic: node.nodeId,
+            payload: node.value,
+            dataType: node.dataType,
+          })),
+        });
       } catch (err) {
         sendOutput(endpoint, {
           status: {
