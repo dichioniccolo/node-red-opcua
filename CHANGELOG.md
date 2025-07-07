@@ -1,5 +1,11 @@
 # node-red-contrib-opcua-client
 
+## 0.0.6
+
+### Patch Changes
+
+- 5e6d0f0: expose value to msg.payload.value instead of msg.payload.payload
+
 ## 0.0.5
 
 ### Patch Changes
