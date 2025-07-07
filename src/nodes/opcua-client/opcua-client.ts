@@ -366,7 +366,7 @@ const nodeInit: NodeInitializer = (RED): void => {
           originalMsg: msg,
           value: {
             topic: msg.topic,
-            payload: dataValue.value,
+            value: dataValue.value,
             dataType: dataValue.dataType,
           },
         });
@@ -411,7 +411,7 @@ const nodeInit: NodeInitializer = (RED): void => {
           originalMsg: msg,
           value: {
             topic: msg.topic,
-            payload: msg.payload,
+            value: msg.payload,
             dataType: msg.dataType,
           },
         });
