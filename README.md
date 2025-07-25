@@ -1,113 +1,77 @@
-# Node-RED Node TypeScript Starter
+# node-red-contrib-capgemini-opcua
 
-This is a quick-start template repository for creating new Node-RED node sets in TypeScript.
+A Node-RED node set for connecting to OPC UA servers, reading and writing node values, and supporting multiple authentication modes (anonymous, username/password, certificate).
 
-## Project Structure
+## Features
 
-```
-node-red-node-typescript-starter/
- ├──src/                             * source files of the node set
- │   ├──__tests__/                   * tests for the node set (test file names should match *.test.ts glob pattern)
- │   │   └──transform-text.test.ts   * tests for the transform-text node
- │   │
- │   └──nodes/                       * node set folder, where subfolder names = node types
- │       ├──shared/                  * folder for .ts files shared across multiple nodes in the node set
- │       │
- │       └──transform-text/          * source files of the transform-text node
- │           ├──icons/               * custom icons used by the node set in the editor
- │           │
- │           ├──modules/             * .ts modules for the runtime side (transform-text.js file) of the node
- │           │
- │           ├──shared/              * folder for .ts files shared between the runtime side (.js file) and the editor side (.html file) of the node
- │           │
- │           ├──transform-text.html/ * files for compiling and bundling into the editor side (transform-text.html file) of the node
- │           │   ├──modules/         * .ts modules
- │           │   ├──editor.html      * html template for the edit dialog
- │           │   ├──help.html        * html template for the help in the info tab
- │           │   └──index.ts         * entry file
- │           │
- |           └──transform-text.ts    * entry file for the runtime side (transform-text.js file) of the node
- |
- ├──package.json                     * dependencies and node types for the Node-RED runtime to load
- |
- ├──rollup.config.editor.json        * rollup config for building the editor side of the nodes
- |
- ├──tsconfig.json                    * base typescript config, for the code editor
- ├──tsconfig.runtime.json            * config for creating a production build of the runtime side of the nodes
- └──tsconfig.runtime.watch.json      * config for watching and incremental building the runtime side of the nodes
-```
+- **OPC UA Client Node**: Read and write single or multiple node values.
+- **Authentication**: Supports anonymous, username/password, and certificate-based authentication.
+- **Configurable Security**: Choose security policy and mode.
+- **Session Management**: Automatic session creation, keep-alive, and reconnection handling.
+- **Error Handling**: Node status and error reporting for all actions.
 
-## Getting Started
+## Nodes
 
-1. Generate a new GitHub repository by clicking the `Use this template` button at the top of the repository homepage, then clone your new repo. Or you might just clone this repo: `git clone https://github.com/alexk111/node-red-node-typescript-starter.git` and cd into it: `cd node-red-node-typescript-starter`.
-2. This project is designed to work with `yarn`. If you don't have `yarn` installed, you can install it with `npm install -g yarn`.
-3. Install dependencies: `yarn install`.
+### OPC UA Client
 
-## Adding Nodes
+- **Actions**:
+  - `read`: Read a single node value.
+  - `write`: Write a value to a single node.
+  - `read-multiple`: Read multiple node values.
+  - `write-multiple`: Write values to multiple nodes.
 
-You can quickly scaffold a new node and add it to the node set. Use the following command to create `my-new-node-type` node:
+- **Inputs**:
+  - `topic`: NodeId for single read/write.
+  - `payload`: Value for write, or array of nodes for multiple actions.
+  - `dataType`: (Optional) Data type for single write actions.
+  - `action`: (Optional) Override node action.
 
-```
-yarn add-node my-new-node-type
-```
+- **Outputs**:
+  - First output: Result of the OPC UA operation.
+  - Second output: Status and error messages.
 
-The node generator is based on mustache templates. At the moment there are three templates available:
+### OPC UA Config
 
-- `blank` (used by default) - basic node for Node-RED >=1.0
-- `blank-0` - node with a backward compatibility for running on Node-RED <1.0
-- `config` - configuration node
+- **Endpoint**: OPC UA server endpoint URL.
+- **Security Policy & Mode**: Select from supported OPC UA security options.
+- **Authentication**: Configure anonymous, username/password, or certificate credentials.
 
-To generate a node using a template, specify it as the third argument:
+## Usage
 
-```
-yarn add-node my-new-node-type blank
-```
+1. Add an **opcua-config** node and configure your server endpoint, security, and credentials.
+2. Add an **opcua-client** node, link it to your config, and select the desired action.
+3. Inject messages with the required properties (`topic`, `payload`, `dataType`, etc.) to perform OPC UA operations.
 
-or
+### OPC Ua Enum Data Type
+```typescript
 
-```
-yarn add-node my-new-node-config config
-```
-
-### Adding Node Templates
-
-If you want to make your own template available, add it to `./utils/templates/`.
-
-## Developing Nodes
-
-Build & Test in Watch mode:
+enum DataType {
+  Null = 0,
+  Boolean = 1,
+  SByte = 2,// signed Byte = Int8
+  Byte = 3,// unsigned Byte = UInt8
+  Int16 = 4,
+  UInt16 = 5,
+  Int32 = 6,
+  UInt32 = 7,
+  Int64 = 8,
+  UInt64 = 9,
+  Float = 10,
+  Double = 11,
+  String = 12,
+  DateTime = 13,
+  Guid = 14,
+  ByteString = 15,
+  XmlElement = 16,
+  NodeId = 17,
+  ExpandedNodeId = 18,
+  StatusCode = 19,
+  QualifiedName = 20,
+  LocalizedText = 21,
+  ExtensionObject = 22,
+  DataValue = 23,
+  Variant = 24,
+  DiagnosticInfo = 25
+}
 
 ```
-yarn dev
-```
-
-## Building Node Set
-
-Create a production build:
-
-```
-yarn build
-```
-
-## Backers 💝
-
-[[Become a backer](https://mynode.alexkaul.com/gh-donate)]
-
-[![Backer](https://mynode.alexkaul.com/gh-backer/top/0/avatar/60)](https://mynode.alexkaul.com/gh-backer/top/0/profile)
-[![Backer](https://mynode.alexkaul.com/gh-backer/top/1/avatar/60)](https://mynode.alexkaul.com/gh-backer/top/1/profile)
-[![Backer](https://mynode.alexkaul.com/gh-backer/top/2/avatar/60)](https://mynode.alexkaul.com/gh-backer/top/2/profile)
-[![Backer](https://mynode.alexkaul.com/gh-backer/top/3/avatar/60)](https://mynode.alexkaul.com/gh-backer/top/3/profile)
-[![Backer](https://mynode.alexkaul.com/gh-backer/top/4/avatar/60)](https://mynode.alexkaul.com/gh-backer/top/4/profile)
-[![Backer](https://mynode.alexkaul.com/gh-backer/top/5/avatar/60)](https://mynode.alexkaul.com/gh-backer/top/5/profile)
-[![Backer](https://mynode.alexkaul.com/gh-backer/top/6/avatar/60)](https://mynode.alexkaul.com/gh-backer/top/6/profile)
-[![Backer](https://mynode.alexkaul.com/gh-backer/top/7/avatar/60)](https://mynode.alexkaul.com/gh-backer/top/7/profile)
-[![Backer](https://mynode.alexkaul.com/gh-backer/top/8/avatar/60)](https://mynode.alexkaul.com/gh-backer/top/8/profile)
-[![Backer](https://mynode.alexkaul.com/gh-backer/top/9/avatar/60)](https://mynode.alexkaul.com/gh-backer/top/9/profile)
-
-## Testing Node Set in Node-RED
-
-[Read Node-RED docs](https://nodered.org/docs/creating-nodes/first-node#testing-your-node-in-node-red) on how to install the node set into your Node-RED runtime.
-
-## License
-
-MIT © Capgemini

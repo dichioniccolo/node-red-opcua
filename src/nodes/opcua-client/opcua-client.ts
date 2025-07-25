@@ -13,6 +13,28 @@ import {
 import { OpcuaConfigOptions } from "../opcua-config/shared/types";
 import { OpcuaClientActionEnum, OpcuaClientStatus } from "./shared/types";
 
+function parseDataType(input: string | number): DataType {
+  let convertedValue: DataType | undefined;
+
+  if (typeof input === "number") {
+    // Check if the number exists in the enum values
+    convertedValue =
+      DataType[input] !== undefined ? (input as DataType) : undefined;
+  }
+
+  if (typeof input === "string") {
+    // Check if the key exists in the enum
+    const value = (DataType as any)[input];
+    convertedValue = typeof value === "number" ? value : undefined;
+  }
+
+  if (!convertedValue) {
+    throw new Error(`Invalid input type: ${typeof input}.`);
+  }
+
+  return convertedValue;
+}
+
 class NodeRedOpcuaConnection {
   private session: ClientSession | null = null;
 
@@ -105,11 +127,7 @@ class NodeRedOpcuaConnection {
     };
   }
 
-  public async write(
-    nodeId: string,
-    value: any,
-    dataType: DataType = DataType.String
-  ) {
+  public async write(nodeId: string, value: any, dataType: DataType) {
     if (!this.session) {
       return null;
     }
@@ -340,7 +358,6 @@ const nodeInit: NodeInitializer = (RED): void => {
       endpoint: string,
       connection: NodeRedOpcuaConnection,
       msg: NodeMessageInFlow & {
-        dataType: DataType;
         topic: string;
       }
     ): Promise<void> => {
@@ -384,7 +401,7 @@ const nodeInit: NodeInitializer = (RED): void => {
       endpoint: string,
       connection: NodeRedOpcuaConnection,
       msg: NodeMessageInFlow & {
-        dataType: DataType;
+        dataType: string | number;
         topic: string;
         payload: any;
       }
@@ -399,13 +416,10 @@ const nodeInit: NodeInitializer = (RED): void => {
         return;
       }
 
-      if (!msg.dataType) {
-        this.error("No data type specified for write action", msg);
-        return;
-      }
+      const dataType = parseDataType(msg.dataType);
 
       try {
-        await connection.write(msg.topic, msg.payload, msg.dataType);
+        await connection.write(msg.topic, msg.payload, dataType);
 
         sendOutput(endpoint, {
           originalMsg: msg,
@@ -429,7 +443,7 @@ const nodeInit: NodeInitializer = (RED): void => {
       endpoint: string,
       connection: NodeRedOpcuaConnection,
       msg: NodeMessageInFlow & {
-        payload: Array<{ nodeId: string; dataType?: DataType }>;
+        payload: Array<{ nodeId: string; dataType?: string | number }>;
       }
     ): Promise<void> => {
       if (!Array.isArray(msg.payload) || msg.payload.length === 0) {
@@ -439,7 +453,7 @@ const nodeInit: NodeInitializer = (RED): void => {
 
       const nodes = msg.payload.map((node) => ({
         nodeId: node.nodeId,
-        dataType: node.dataType || DataType.String,
+        dataType: parseDataType(node.dataType || DataType.String),
       }));
 
       try {
@@ -467,7 +481,11 @@ const nodeInit: NodeInitializer = (RED): void => {
       endpoint: string,
       connection: NodeRedOpcuaConnection,
       msg: NodeMessageInFlow & {
-        payload: Array<{ nodeId: string; value: any; dataType: DataType }>;
+        payload: Array<{
+          nodeId: string;
+          value: any;
+          dataType: string | number;
+        }>;
       }
     ): Promise<void> => {
       if (
@@ -484,7 +502,7 @@ const nodeInit: NodeInitializer = (RED): void => {
       const nodes = msg.payload.map((node) => ({
         nodeId: node.nodeId,
         value: node.value,
-        dataType: node.dataType,
+        dataType: parseDataType(node.dataType),
       }));
 
       try {
@@ -514,7 +532,7 @@ const nodeInit: NodeInitializer = (RED): void => {
         msg: NodeMessageInFlow & {
           opcuaConfig?: OpcuaConfigOptions | null;
           action?: OpcuaClientActionEnum;
-          dataType?: DataType | null;
+          dataType?: string | number | null;
           topic?: string;
           payload?: any;
         }
@@ -613,8 +631,6 @@ const nodeInit: NodeInitializer = (RED): void => {
           return;
         }
 
-        const dataType = msg.dataType as DataType;
-
         if (action === OpcuaClientActionEnum.READ) {
           const topic = msg.topic;
 
@@ -626,7 +642,6 @@ const nodeInit: NodeInitializer = (RED): void => {
           await onActionRead(endpoint, connection, {
             ...msg,
             topic,
-            dataType,
           });
         } else if (action === OpcuaClientActionEnum.WRITE) {
           const topic = msg.topic;
@@ -636,10 +651,15 @@ const nodeInit: NodeInitializer = (RED): void => {
             return;
           }
 
+          if (!msg.dataType) {
+            this.error("No data type specified for write action", msg);
+            return;
+          }
+
           await onActionWrite(endpoint, connection, {
             ...msg,
             topic,
-            dataType,
+            dataType: msg.dataType,
             payload: msg.payload,
           });
         } else if (action === OpcuaClientActionEnum.READ_MULTIPLE) {
