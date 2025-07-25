@@ -1,5 +1,11 @@
 # node-red-contrib-opcua-client
 
+## 0.0.8
+
+### Patch Changes
+
+- e674e37: fix node description
+
 ## 0.0.7
 
 ### Patch Changes
