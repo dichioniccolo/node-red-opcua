@@ -1,5 +1,11 @@
 # node-red-contrib-opcua-client
 
+## 0.0.7
+
+### Patch Changes
+
+- d075431: dataType better handling and fix on "multiple" actions requiring topic
+
 ## 0.0.6
 
 ### Patch Changes
