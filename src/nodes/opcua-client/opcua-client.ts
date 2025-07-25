@@ -615,20 +615,27 @@ const nodeInit: NodeInitializer = (RED): void => {
 
         const dataType = msg.dataType as DataType;
 
-        const topic = msg.topic;
-
-        if (!topic) {
-          this.error("No topic specified", msg);
-          return;
-        }
-
         if (action === OpcuaClientActionEnum.READ) {
+          const topic = msg.topic;
+
+          if (!topic) {
+            this.error("No topic specified", msg);
+            return;
+          }
+
           await onActionRead(endpoint, connection, {
             ...msg,
             topic,
             dataType,
           });
         } else if (action === OpcuaClientActionEnum.WRITE) {
+          const topic = msg.topic;
+
+          if (!topic) {
+            this.error("No topic specified", msg);
+            return;
+          }
+
           await onActionWrite(endpoint, connection, {
             ...msg,
             topic,
@@ -636,11 +643,21 @@ const nodeInit: NodeInitializer = (RED): void => {
             payload: msg.payload,
           });
         } else if (action === OpcuaClientActionEnum.READ_MULTIPLE) {
+          if (!Array.isArray(msg.payload) || msg.payload.length === 0) {
+            this.error("No payload specified for read-multiple action", msg);
+            return;
+          }
+
           await onActionReadMultiple(endpoint, connection, {
             ...msg,
             payload: msg.payload,
           });
         } else if (action === OpcuaClientActionEnum.WRITE_MULTIPLE) {
+          if (!Array.isArray(msg.payload) || msg.payload.length === 0) {
+            this.error("No payload specified for write-multiple action", msg);
+            return;
+          }
+
           await onActionWriteMultiple(endpoint, connection, {
             ...msg,
             payload: msg.payload,
