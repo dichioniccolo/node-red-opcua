@@ -1,5 +1,11 @@
 # node-red-contrib-opcua-client
 
+## 0.0.9
+
+### Patch Changes
+
+- 8ae5cfe: add keywords for catalog publishing
+
 ## 0.0.8
 
 ### Patch Changes
