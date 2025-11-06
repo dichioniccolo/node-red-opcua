@@ -1,4 +1,4 @@
-# node-red-contrib-capgemini-opcua
+# node-red-contrib-opcua-client
 
 A Node-RED node set for connecting to OPC UA servers, reading and writing node values, and supporting multiple authentication modes (anonymous, username/password, certificate).
 
