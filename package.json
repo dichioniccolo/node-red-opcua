@@ -1,0 +1,86 @@
+{
+  "name": "node-red-contrib-opcua-client",
+  "version": "0.0.9",
+  "description": "A better OPC Ua client for Node-Red",
+  "keywords": [
+    "node-red",
+    "opcua",
+    "node-red-contrib-opcua"
+  ],
+  "scripts": {
+    "add-node": "node ./utils/add-node.js",
+    "copy": "copyfiles -u 2 \"./src/nodes/**/*.{png,svg}\" \"./dist/nodes/\"",
+    "build:editor": "rollup -c rollup.config.editor.js",
+    "build:editor:watch": "rollup -c rollup.config.editor.js -w",
+    "build:runtime": "tsc -p tsconfig.runtime.json",
+    "build:runtime:watch": "tsc -p tsconfig.runtime.watch.json --watch --preserveWatchOutput",
+    "build": "rm -rf dist && pnpm copy && pnpm build:editor && pnpm build:runtime",
+    "test": "jest --forceExit --detectOpenHandles --colors",
+    "test:watch": "jest --forceExit --detectOpenHandles --watchAll",
+    "dev": "rm -rf dist && pnpm copy && concurrently --kill-others --names \"COPY,EDITOR,RUNTIME\" --prefix \"({name})\" --prefix-colors \"yellow.bold,cyan.bold,greenBright.bold\" \"onchange -v 'src/**/*.png' 'src/**/*.svg' -- pnpm copy\" \"pnpm build:editor:watch\" \"pnpm build:runtime:watch\"",
+    "lint": "prettier --ignore-path .eslintignore --check '**/*.{js,ts,md}'; eslint --ext .js,.ts .",
+    "lint:fix": "prettier --ignore-path .eslintignore --write '**/*.{js,ts,md}'; eslint --ext .js,.ts . --fix",
+    "release": "pnpm changeset version && pnpm changeset publish"
+  },
+  "author": "Niccolo' Di Chio",
+  "license": "MIT",
+  "node-red": {
+    "nodes": {
+      "opcua-client": "./dist/nodes/opcua-client/opcua-client.js",
+      "opcua-config": "./dist/nodes/opcua-config/opcua-config.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "devDependencies": {
+    "@changesets/changelog-github": "^0.5.1",
+    "@changesets/cli": "^2.29.7",
+    "@rollup/plugin-commonjs": "^29.0.0",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-typescript": "^12.3.0",
+    "@types/express": "^5.0.5",
+    "@types/jest": "^30.0.0",
+    "@types/mustache": "^4.2.6",
+    "@types/node": "^24.10.0",
+    "@types/node-red": "^1.1.1",
+    "@types/node-red-node-test-helper": "^0.3.5",
+    "@types/sinon": "^17.0.4",
+    "@types/supertest": "^6.0.3",
+    "@typescript-eslint/eslint-plugin": "^8.46.3",
+    "@typescript-eslint/parser": "^8.46.3",
+    "colorette": "^2.0.20",
+    "concurrently": "^9.2.1",
+    "copyfiles": "^2.4.1",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jest": "^29.0.1",
+    "eslint-plugin-prettier": "^5.5.4",
+    "glob": "11.0.3",
+    "jest": "^30.2.0",
+    "node-red": "^4.1.1",
+    "node-red-node-test-helper": "^0.3.5",
+    "onchange": "^7.0.2",
+    "prettier": "^3.6.2",
+    "rollup": "^4.52.5",
+    "ts-jest": "^29.4.5",
+    "typescript": "^5.9.3"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/src"
+    ],
+    "transform": {
+      "^.+\\.ts$": "ts-jest"
+    },
+    "testMatch": [
+      "**/__tests__/**/*.test.ts"
+    ]
+  },
+  "dependencies": {
+    "mustache": "^4.2.0",
+    "node-opcua": "^2.157.0",
+    "node-opcua-crypto": "^4.16.0"
+  }
+}
