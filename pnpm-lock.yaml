@@ -46,7 +46,7 @@ importers:
         specifier: ^24.10.0
         version: 24.10.0
       '@types/node-red':
-        specifier: ^1.1.1
+        specifier: ^1.3.5
         version: 1.3.5
       '@types/node-red-node-test-helper':
         specifier: ^0.3.5
