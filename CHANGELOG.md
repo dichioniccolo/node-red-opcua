@@ -1,5 +1,11 @@
 # node-red-contrib-opcua-client
 
+## 0.0.10
+
+### Patch Changes
+
+- 8d884fd: Update packages
+
 ## 0.0.9
 
 ### Patch Changes
