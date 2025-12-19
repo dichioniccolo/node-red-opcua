@@ -97,7 +97,7 @@ importers:
         specifier: ^0.3.5
         version: 0.3.5
       onchange:
-        specifier: ^7.0.2
+        specifier: ^7.1.0
         version: 7.1.0
       prettier:
         specifier: ^3.6.2
