@@ -80,7 +80,7 @@
   },
   "dependencies": {
     "mustache": "^4.2.0",
-    "node-opcua": "^2.161.0",
+    "node-opcua": "^2.162.0",
     "node-opcua-crypto": "^4.16.1"
   }
 }
