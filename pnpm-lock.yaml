@@ -15,8 +15,8 @@ importers:
         specifier: ^2.162.0
         version: 2.162.0
       node-opcua-crypto:
-        specifier: ^4.16.1
-        version: 4.16.1
+        specifier: ^5.3.0
+        version: 5.3.0
     devDependencies:
       '@changesets/changelog-github':
         specifier: ^0.5.2
@@ -3019,6 +3019,9 @@ packages:
 
   node-opcua-crypto@4.16.1:
     resolution: {integrity: sha512-+q7Wy8m1pnUIBj3xeYsUvGGn3N0hqd7wy8EuU6RdVhyU6+6rh8vJiq09Emd7mk1rwejlqgPIiZa+rzzFaiDGhQ==}
+
+  node-opcua-crypto@5.3.0:
+    resolution: {integrity: sha512-JeR4TG0Z8aDSLd3aKUWU3C2LvK4SiB9SHP23a1Rh/GfwHxUB6c4Ui0M2NSqeQCG7eYLX6PrSf6mWcmHo6zB/vg==}
 
   node-opcua-data-access@2.162.0:
     resolution: {integrity: sha512-YCHGRplMOBDhs66aZg3unSJ3W52MnEyZ1cIIOX558ocI/pK58nP7eNUPFjeIQO2/Y7Hel4UIB4nnqff2BXUX5w==}
@@ -7925,6 +7928,12 @@ snapshots:
       chalk: 4.1.2
       hexy: 0.3.5
       jsrsasign: 11.1.0
+      sshpk: 1.18.0
+
+  node-opcua-crypto@5.3.0:
+    dependencies:
+      '@peculiar/webcrypto': 1.5.0
+      '@peculiar/x509': 1.14.2
       sshpk: 1.18.0
 
   node-opcua-data-access@2.162.0:
